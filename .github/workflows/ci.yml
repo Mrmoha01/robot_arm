@@ -1,0 +1,23 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  kinematics:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install test dependencies
+        run: pip install pytest numpy xacro
+      - name: Kinematics and plan unit tests
+        run: PYTHONPATH=src/robot_arm_control python -m pytest src/robot_arm_control/test -v
+      - name: URDF matches the kinematics
+        run: |
+          xacro src/robot_arm_description/urdf/robot_arm.urdf.xacro -o /tmp/robot_arm.urdf
+          python tools/urdf_check.py /tmp/robot_arm.urdf

@@ -1,0 +1,42 @@
+<?xml version="1.0"?>
+<!--
+  ros2_control hardware description for Gazebo (gz_ros2_control, ROS 2 Jazzy).
+
+  On the real arm, replace the <hardware> plugin below with the hardware
+  interface that talks to the microcontroller. The joint list, the
+  controllers and everything above them stay the same.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:macro name="position_joint" params="name">
+    <joint name="${name}">
+      <command_interface name="position"/>
+      <state_interface name="position">
+        <param name="initial_value">0.0</param>
+      </state_interface>
+      <state_interface name="velocity"/>
+    </joint>
+  </xacro:macro>
+
+  <xacro:macro name="robot_arm_ros2_control" params="controllers_file">
+    <ros2_control name="RobotArmSystem" type="system">
+      <hardware>
+        <plugin>gz_ros2_control/GazeboSimSystem</plugin>
+      </hardware>
+      <xacro:position_joint name="base_yaw_joint"/>
+      <xacro:position_joint name="shoulder_joint"/>
+      <xacro:position_joint name="elbow_joint"/>
+      <xacro:position_joint name="wrist_joint"/>
+      <xacro:position_joint name="finger_left_joint"/>
+      <xacro:position_joint name="finger_right_joint"/>
+    </ros2_control>
+
+    <gazebo>
+      <plugin filename="gz_ros2_control-system"
+              name="gz_ros2_control::GazeboSimROS2ControlPlugin">
+        <parameters>${controllers_file}</parameters>
+      </plugin>
+    </gazebo>
+  </xacro:macro>
+
+</robot>

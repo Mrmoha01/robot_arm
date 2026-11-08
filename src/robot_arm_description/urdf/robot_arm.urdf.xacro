@@ -1,0 +1,230 @@
+<?xml version="1.0"?>
+<!--
+  4-joint pitch arm with a 2-finger gripper (base yaw, shoulder, elbow, wrist).
+
+  Joint conventions (must match robot_arm_control/kinematics.py):
+    * all joints at zero  -> the arm points straight up
+    * base_yaw_joint rotates about +z, the other three about +y
+    * positive pitch tilts a link from vertical towards +x
+  Dimensions are in metres and kilograms. The masses are estimates for plywood
+  links, MG996R servos (55 g) and MG90S servos (14 g).
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="robot_arm">
+
+  <xacro:arg name="use_sim" default="false"/>
+  <xacro:arg name="controllers_file" default=""/>
+
+  <!-- ===== Geometry (keep in sync with kinematics.py: ArmGeometry) ===== -->
+  <xacro:property name="base_x" value="0.16"/>
+  <xacro:property name="base_y" value="0.16"/>
+  <xacro:property name="base_h" value="0.03"/>
+  <xacro:property name="turret_r" value="0.035"/>
+  <xacro:property name="turret_h" value="0.05"/>
+  <xacro:property name="l_upper" value="0.15"/>
+  <xacro:property name="l_fore" value="0.15"/>
+  <xacro:property name="l_tool" value="0.08"/>
+  <xacro:property name="palm_h" value="0.035"/>
+  <xacro:property name="finger_len" value="0.045"/>
+
+  <!-- ===== Limits (hobby servos: about +-90 degrees) ===== -->
+  <xacro:property name="joint_range" value="1.5708"/>
+  <xacro:property name="finger_travel" value="0.03"/>
+
+  <!-- ===== Materials ===== -->
+  <material name="wood"><color rgba="0.80 0.64 0.40 1.0"/></material>
+  <material name="servo"><color rgba="0.12 0.12 0.14 1.0"/></material>
+  <material name="grip"><color rgba="0.85 0.25 0.20 1.0"/></material>
+
+  <!-- ===== Inertia helpers ===== -->
+  <xacro:macro name="box_inertial" params="m x y z cz:=0">
+    <inertial>
+      <origin xyz="0 0 ${cz}" rpy="0 0 0"/>
+      <mass value="${m}"/>
+      <inertia ixx="${m/12*(y*y+z*z)}" ixy="0" ixz="0"
+               iyy="${m/12*(x*x+z*z)}" iyz="0"
+               izz="${m/12*(x*x+y*y)}"/>
+    </inertial>
+  </xacro:macro>
+
+  <xacro:macro name="cyl_inertial" params="m r h cz:=0">
+    <inertial>
+      <origin xyz="0 0 ${cz}" rpy="0 0 0"/>
+      <mass value="${m}"/>
+      <inertia ixx="${m/12*(3*r*r+h*h)}" ixy="0" ixz="0"
+               iyy="${m/12*(3*r*r+h*h)}" iyz="0"
+               izz="${m*r*r/2}"/>
+    </inertial>
+  </xacro:macro>
+
+  <!-- ===== World anchor (makes the base static in Gazebo) ===== -->
+  <link name="world"/>
+  <joint name="world_fixed" type="fixed">
+    <parent link="world"/>
+    <child link="base_link"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <!-- ===== Base plate ===== -->
+  <link name="base_link">
+    <visual>
+      <origin xyz="0 0 ${base_h/2}" rpy="0 0 0"/>
+      <geometry><box size="${base_x} ${base_y} ${base_h}"/></geometry>
+      <material name="wood"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 ${base_h/2}" rpy="0 0 0"/>
+      <geometry><box size="${base_x} ${base_y} ${base_h}"/></geometry>
+    </collision>
+    <xacro:box_inertial m="0.5" x="${base_x}" y="${base_y}" z="${base_h}" cz="${base_h/2}"/>
+  </link>
+
+  <!-- ===== Turret (rotates about z) ===== -->
+  <link name="turret_link">
+    <visual>
+      <origin xyz="0 0 ${turret_h/2}" rpy="0 0 0"/>
+      <geometry><cylinder radius="${turret_r}" length="${turret_h}"/></geometry>
+      <material name="wood"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 ${turret_h/2}" rpy="0 0 0"/>
+      <geometry><cylinder radius="${turret_r}" length="${turret_h}"/></geometry>
+    </collision>
+    <xacro:cyl_inertial m="0.09" r="${turret_r}" h="${turret_h}" cz="${turret_h/2}"/>
+  </link>
+
+  <joint name="base_yaw_joint" type="revolute">
+    <parent link="base_link"/>
+    <child link="turret_link"/>
+    <origin xyz="0 0 ${base_h}" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-${joint_range}" upper="${joint_range}" effort="1.0" velocity="2.0"/>
+    <dynamics damping="0.3" friction="0.0"/>
+  </joint>
+
+  <!-- ===== Upper arm (shoulder joint at its origin) ===== -->
+  <link name="upper_arm_link">
+    <visual>
+      <origin xyz="0 0 ${l_upper/2}" rpy="0 0 0"/>
+      <geometry><box size="0.03 0.025 ${l_upper}"/></geometry>
+      <material name="wood"/>
+    </visual>
+    <visual>
+      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+      <geometry><cylinder radius="0.02" length="0.04"/></geometry>
+      <material name="servo"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 ${l_upper/2}" rpy="0 0 0"/>
+      <geometry><box size="0.03 0.025 ${l_upper}"/></geometry>
+    </collision>
+    <!-- plywood bar plus the elbow servo near the far end -->
+    <xacro:box_inertial m="0.085" x="0.03" y="0.025" z="${l_upper}" cz="0.11"/>
+  </link>
+
+  <joint name="shoulder_joint" type="revolute">
+    <parent link="turret_link"/>
+    <child link="upper_arm_link"/>
+    <origin xyz="0 0 ${turret_h}" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-${joint_range}" upper="${joint_range}" effort="1.0" velocity="2.0"/>
+    <dynamics damping="0.3" friction="0.0"/>
+  </joint>
+
+  <!-- ===== Forearm (elbow joint at its origin) ===== -->
+  <link name="forearm_link">
+    <visual>
+      <origin xyz="0 0 ${l_fore/2}" rpy="0 0 0"/>
+      <geometry><box size="0.025 0.02 ${l_fore}"/></geometry>
+      <material name="wood"/>
+    </visual>
+    <visual>
+      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+      <geometry><cylinder radius="0.018" length="0.036"/></geometry>
+      <material name="servo"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 ${l_fore/2}" rpy="0 0 0"/>
+      <geometry><box size="0.025 0.02 ${l_fore}"/></geometry>
+    </collision>
+    <!-- plywood bar plus the wrist servo near the far end -->
+    <xacro:box_inertial m="0.04" x="0.025" y="0.02" z="${l_fore}" cz="0.10"/>
+  </link>
+
+  <joint name="elbow_joint" type="revolute">
+    <parent link="upper_arm_link"/>
+    <child link="forearm_link"/>
+    <origin xyz="0 0 ${l_upper}" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-${joint_range}" upper="${joint_range}" effort="1.0" velocity="2.0"/>
+    <dynamics damping="0.2" friction="0.0"/>
+  </joint>
+
+  <!-- ===== Wrist and gripper palm (wrist joint at its origin) ===== -->
+  <link name="wrist_link">
+    <visual>
+      <origin xyz="0 0 ${palm_h/2}" rpy="0 0 0"/>
+      <geometry><box size="0.05 0.07 ${palm_h}"/></geometry>
+      <material name="servo"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 ${palm_h/2}" rpy="0 0 0"/>
+      <geometry><box size="0.05 0.07 ${palm_h}"/></geometry>
+    </collision>
+    <xacro:box_inertial m="0.055" x="0.05" y="0.07" z="${palm_h}" cz="0.03"/>
+  </link>
+
+  <joint name="wrist_joint" type="revolute">
+    <parent link="forearm_link"/>
+    <child link="wrist_link"/>
+    <origin xyz="0 0 ${l_fore}" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-${joint_range}" upper="${joint_range}" effort="0.5" velocity="2.0"/>
+    <dynamics damping="0.1" friction="0.0"/>
+  </joint>
+
+  <!-- ===== Gripper fingers (0 = closed, finger_travel = fully open) ===== -->
+  <xacro:macro name="finger" params="side y_offset axis_y">
+    <link name="finger_${side}_link">
+      <visual>
+        <origin xyz="0 0 ${finger_len/2}" rpy="0 0 0"/>
+        <geometry><box size="0.012 0.008 ${finger_len}"/></geometry>
+        <material name="grip"/>
+      </visual>
+      <collision>
+        <origin xyz="0 0 ${finger_len/2}" rpy="0 0 0"/>
+        <geometry><box size="0.012 0.008 ${finger_len}"/></geometry>
+      </collision>
+      <xacro:box_inertial m="0.01" x="0.012" y="0.008" z="${finger_len}" cz="${finger_len/2}"/>
+    </link>
+    <joint name="finger_${side}_joint" type="prismatic">
+      <parent link="wrist_link"/>
+      <child link="finger_${side}_link"/>
+      <origin xyz="0 ${y_offset} ${palm_h}" rpy="0 0 0"/>
+      <axis xyz="0 ${axis_y} 0"/>
+      <limit lower="0.0" upper="${finger_travel}" effort="5.0" velocity="0.1"/>
+      <dynamics damping="1.0" friction="0.0"/>
+    </joint>
+    <gazebo reference="finger_${side}_link">
+      <mu1>1.5</mu1>
+      <mu2>1.5</mu2>
+    </gazebo>
+  </xacro:macro>
+
+  <xacro:finger side="left" y_offset="0.010" axis_y="1"/>
+  <xacro:finger side="right" y_offset="-0.010" axis_y="-1"/>
+
+  <!-- ===== Tool tip (centre between the fingertips) ===== -->
+  <link name="tool_tip"/>
+  <joint name="tool_tip_joint" type="fixed">
+    <parent link="wrist_link"/>
+    <child link="tool_tip"/>
+    <origin xyz="0 0 ${l_tool}" rpy="0 0 0"/>
+  </joint>
+
+  <!-- ===== ros2_control + Gazebo (only when simulating) ===== -->
+  <xacro:if value="$(arg use_sim)">
+    <xacro:include filename="$(find robot_arm_description)/urdf/robot_arm.ros2_control.xacro"/>
+    <xacro:robot_arm_ros2_control controllers_file="$(arg controllers_file)"/>
+  </xacro:if>
+
+</robot>

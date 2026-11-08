@@ -1,0 +1,92 @@
+<?xml version="1.0" ?>
+<!--
+  Pick-and-place world: flat ground, a 3 cm cube to pick up at (0.25, -0.10)
+  and a flat pad marking where to put it, at (0.25, 0.10).
+  The arm is spawned at the origin. Keep these positions in sync with the
+  defaults in robot_arm_control/pick_place_demo.py.
+-->
+<sdf version="1.9">
+  <world name="pick_place">
+
+    <physics name="1ms" type="ignored">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+    </physics>
+
+    <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/>
+    <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands"/>
+    <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"/>
+
+    <gravity>0 0 -9.81</gravity>
+
+    <light type="directional" name="sun">
+      <cast_shadows>true</cast_shadows>
+      <pose>0 0 5 0 0 0</pose>
+      <diffuse>0.9 0.9 0.9 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <direction>-0.4 0.2 -0.9</direction>
+    </light>
+
+    <model name="ground_plane">
+      <static>true</static>
+      <link name="link">
+        <collision name="collision">
+          <geometry><plane><normal>0 0 1</normal><size>4 4</size></plane></geometry>
+          <surface>
+            <friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry><plane><normal>0 0 1</normal><size>4 4</size></plane></geometry>
+          <material>
+            <ambient>0.55 0.58 0.60 1</ambient>
+            <diffuse>0.55 0.58 0.60 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Target pad (visual only, nothing to collide with) -->
+    <model name="place_pad">
+      <static>true</static>
+      <pose>0.25 0.10 0.0005 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry><box><size>0.08 0.08 0.001</size></box></geometry>
+          <material>
+            <ambient>0.2 0.7 0.3 1</ambient>
+            <diffuse>0.2 0.7 0.3 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Cube to pick: 3 cm, 50 g -->
+    <model name="cube">
+      <pose>0.25 -0.10 0.015 0 0 0</pose>
+      <link name="link">
+        <inertial>
+          <mass>0.05</mass>
+          <inertia>
+            <ixx>7.5e-6</ixx><iyy>7.5e-6</iyy><izz>7.5e-6</izz>
+            <ixy>0</ixy><ixz>0</ixz><iyz>0</iyz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry><box><size>0.03 0.03 0.03</size></box></geometry>
+          <surface>
+            <friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.03 0.03 0.03</size></box></geometry>
+          <material>
+            <ambient>0.9 0.2 0.15 1</ambient>
+            <diffuse>0.9 0.2 0.15 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+  </world>
+</sdf>
